@@ -537,14 +537,29 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
     append_str(fs_buf, &fs_len, "texel.rgb = WRAP(texel.rgb, -0.51, 1.51);");
     append_str(fs_buf, &fs_len, "texel.rgb = clamp(texel.rgb, 0.0, 1.0);");
     // TODO discard if alpha is 0?
-    if (cc_features.opt_fog) {
-        if (cc_features.opt_alpha) {
-            append_line(fs_buf, &fs_len, "texel = vec4(mix(texel.rgb, vFog.rgb, vFog.a), texel.a);");
-        } else {
-            append_line(fs_buf, &fs_len, "texel = mix(texel, vFog.rgb, vFog.a);");
-        }
+// 🥷 DIRTY FOG & ULTIMATE ENGINE OVERHAUL
+if (cc_features.opt_fog) {
+    if (cc_features.opt_alpha) {
+        append_line(fs_buf, &fs_len, "texel = vec4(mix(texel.rgb, vec3(0.15, 0.05, 0.25), vFog.a * 0.7), texel.a);");
+    } else {
+        append_line(fs_buf, &fs_len, "texel = mix(texel, vec3(0.15, 0.05, 0.25), vFog.a * 0.7);");
     }
+}
 
+// Anime + Cinema + Vibrance + Sharpening
+append_line(fs_buf, &fs_len, "float lum = dot(texel.rgb, vec3(0.299, 0.587, 0.114));");
+append_line(fs_buf, &fs_len, "vec3 c = mix(vec3(lum), texel.rgb, 1.5);");
+append_line(fs_buf, &fs_len, "c = (c - 0.5) * 1.2 + 0.5;");
+append_line(fs_buf, &fs_len, "c = floor(c * 10.0) / 10.0;"); // Anime Toon
+append_line(fs_buf, &fs_len, "vec3 shadowTint = vec3(-0.02, 0.02, 0.06);");
+append_line(fs_buf, &fs_len, "vec3 highlightTint = vec3(0.06, 0.02, -0.02);");
+append_line(fs_buf, &fs_len, "c += mix(shadowTint, highlightTint, lum);");
+append_line(fs_buf, &fs_len, "c += smoothstep(0.6, 1.0, c) * 0.2;"); // Fake Bloom
+append_line(fs_buf, &fs_len, "float edge = length(c - vec3(lum));");
+append_line(fs_buf, &fs_len, "c += edge * 0.15;"); // Micro-Sharpening
+append_line(fs_buf, &fs_len, "texel.rgb = clamp(c, 0.0, 1.0);");
+
+   
     if (cc_features.opt_texture_edge && cc_features.opt_alpha) {
         append_line(fs_buf, &fs_len, "if (texel.a > 0.19) texel.a = 1.0; else discard;");
     }
